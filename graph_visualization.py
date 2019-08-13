@@ -10,18 +10,16 @@ class Visualization:
 
     def __init__(self):
         self.outer_color = {'0': 'white',
-                      '1': 'white',
-                      '2': 'white',
-                      '3': 'white',
-                      '4': 'white',
-                      '5': 'white',
-                      '6': 'black',
+                      '1': 'blue',
+                      '2': 'green',
+                      '3': 'yellow',
+                      '4': 'red',
+                      '5': 'black',
+                      '6': 'green',
                       '7': 'white',
                       '8': 'white',
-                      '9': 'white'
+                      '9': 'black'
                       }
-
-
 
 
     def rgb2hex(self, color):

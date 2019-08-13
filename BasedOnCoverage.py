@@ -268,8 +268,10 @@ if __name__ == "__main__":
     for each in list_of_files:
         if each[:7] not in already_completed:
             img = Image.open(os.path.join(dir_path, each)).convert('RGB')
-            if len(img.getcolors()) > 5:
+            if len(img.getcolors()) == 5:
                 img_name = os.path.join(dir_path, each)
-                Obj = RecolorBasedOnCoverage(img_name=img_name, db_name="sorted_1000.xlsx")
+                i = Image.open(img_name)
+                i.save('FiveColorImages/'+each)
+                # Obj = RecolorBasedOnCoverage(img_name=img_name, db_name="sorted_1000.xlsx")
             already_completed.append(each[:7])
     # Obj = RecolorBasedOnCoverage(img_name=img_name, db_name="sorted_1000.xlsx")
