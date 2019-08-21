@@ -1,13 +1,19 @@
 import pandas as pd
 import numpy as np
-import pyvips
 from PIL import Image
 import colorsys
+import os
+import math
 
+cwd = os.getcwd()
+vips_path = cwd+'\\libvips'
+os.environ['PATH'] = vips_path
+
+import pyvips
 
 class SortingDatabase:
 
-    def __init__(self, filename="filters_aaded_2.xlsx", palette_filter='light_filter', color_category=2):
+    def __init__(self, filename="10000_with_filters.xlsx", palette_filter='light_filter', color_category=2):
         self.color_db = pd.read_excel(filename)
         self.hls_range = {'red':[330, 360, 20, 80],
                           'yellow':[30, 90, 20, 80],
@@ -35,9 +41,10 @@ class SortingDatabase:
         # self.result_count = number
         self.color_db.drop(self.color_db.tail(1).index, inplace=True)
         self.color_db.drop_duplicates(keep=False, inplace=True)
-
         # df = self.color_db.copy()
         # self.add_category_filter(df)
+
+        # self.merge_palettes(self.color_db, 45, self.names[2], 'wid 5')
         # self.choose_from_one_category(df, self.names[3])
         # self.select_color_category_from_interpolation(df, c1=(42, 47, 59), c2=(103, 108, 120), c3=(173, 179, 190))
         # refned, count = self.choose_from_two_category(self.color_category, self.palette_filter)
@@ -49,15 +56,13 @@ class SortingDatabase:
         # left_out = self.sort_based_on_one_column('test_bool', df, False)
         # print(left_out.test_bool.sum())
         # self.create_image_of_result(left_out, 300)
-        # self.adjust_width()
-        # self.add_category_filter(self.color_db)
-        # selected = self.find_purpleviolets(self.color_db)
-        # self.create_image_of_result(selected, 100)
-        # sorted_hue = self.sort_based_on_one_column('l5', self.color_db)
-        # self.create_image_of_result(sorted_hue[:1000], result=1000)
-        # muted_candidate = self.find_tonal_palettes(self.color_db)
-        # self.create_image_of_result(muted_candidate, 300)
 
+        # self.manage_large_db('HugeSqlDb.xlsx')
+        # df = pd.read_excel('10000ColorValuesHLS.xlsx')
+        # self.sort_df_with_width(df)
+        # self.create_overall_database()
+        # self.create_overall_database()
+        # self.add_category_filter(df)
         # self.find_tonal_palettes(self.color_db)
         # self.find_between_range(self.color_db)
         # self.columns = self.color_db.columns.values
@@ -276,28 +281,28 @@ class SortingDatabase:
         return df
 
     def find_blueindigos(self, df):
-        df['boolean_2'] = (210 < df['h5']) & (df['h5'] < 240) & (df['s5'] > 20)
+        df['boolean_2'] = (210 < df['h5']) & (df['h5'] < 240) & (df['s5'] > 30)
         # selected = self.sort_based_on_one_column('boolean', df, False)
         # avilable = selected.boolean.sum()
         # return selected.head(avilable)
         return df
 
     def find_greenturtoise(self, df):
-        df['boolean_3'] = (100 < df['h5']) & (df['h5'] < 200) & (df['s5'] < 60) & (df['s5'] > 20)
+        df['boolean_3'] = (140 < df['h5']) & (df['h5'] < 200) & (df['s5'] < 40) & (df['s5'] > 14)
         # selected = self.sort_based_on_one_column('boolean', df, False)
         # avilable = selected.boolean.sum()
         # return selected.head(avilable)
         return df
 
     def find_greenearth(self, df):
-        df['boolean_4'] = (40 < df['h5']) & (df['h5'] < 110) & (df['s5'] < 50)
+        df['boolean_4'] = (60 < df['h5']) & (df['h5'] < 90) & (df['s5'] >20)&(df['s5'] < 60)
         # selected = self.sort_based_on_one_column('boolean', df, False)
         # avilable = selected.boolean.sum()
         # return selected.head(avilable)
         return df
 
     def find_yellowbrowns(self, df):
-        df['boolean_5'] = (50 < df['h5']) & (df['h5'] < 60) & (df['s5'] > 20)
+        df['boolean_5'] = (50 < df['h5']) & (df['h5'] < 60) & (df['s5'] > 60)
         # selected = self.sort_based_on_one_column('boolean', df, False)
         # avilable = selected.boolean.sum()
         # return selected.head(avilable)
@@ -318,14 +323,14 @@ class SortingDatabase:
         return df
 
     def find_burgundymaroons(self, df):
-        df['boolean_8'] = ((df['h5'] > 330) & (df['s5'] > 10) & (df['s5'] < 40)) | ((df['h5'] < 10) & (df['s5'] > 10) & (df['s5'] < 40))
+        df['boolean_8'] = ((df['h5'] > 345) & (df['s5'] > 15) & (df['s5'] < 40) & (df['l5'] < 50)) | ((df['h5'] < 16) & (df['s5'] > 26) & (df['s5'] < 40) & (df['l5'] < 50))
         # selected = self.sort_based_on_one_column('boolean', df, False)
         # avilable = selected.boolean.sum()
         # return selected.head(avilable)
         return df
 
     def find_brownsbeiges(self, df):
-        df['boolean_9'] = ((df['h5'] < 50) & (df['s5'] < 25) ) | ((df['h5'] > 330) & (df['h5'] < 340) & (df['s5'] < 25))
+        df['boolean_9'] = ((df['h5'] < 50) & (df['s5'] < 25) ) | ((df['h5'] > 330) & (df['h5'] < 340) & (df['s5'] < 21))
         # selected = self.sort_based_on_one_column('boolean', df, False)
         # avilable = selected.boolean.sum()
         # return selected.head(avilable)
@@ -338,45 +343,47 @@ class SortingDatabase:
         # return selected.head(avilable)
         return df
 
+# sort the corlors according to width for whole database
     def sort_df_with_width(self, df):
-        pandas_col = ["rank", "hearts", "color 1", "color 2", "color 3", "color 4", "color 5", "wid 1", "wid 2", "wid 3", "wid 4", "wid 5"]
+        pandas_col = ["rank", "hex1", "hex2", "hex3", "hex4", "hex5", "wid 1", "wid 2", "wid 3", "wid 4", "wid 5"]
         sorted_db = pd.DataFrame(columns=pandas_col)
         for index, row in df.iterrows():
-            array = np.array([row['color 1'], row['color 2'], row['color 3'], row['color 4'], row['color 5'], row['wid 1'], row['wid 2'], row['wid 3'], row['wid 4'], row['wid 5']])
+            array = np.array([row['hex1'], row['hex2'], row['hex3'], row['hex4'], row['hex5'], row['wid 1'], row['wid 2'], row['wid 3'], row['wid 4'], row['wid 5']])
             array = array.reshape(2, 5).T
             array = array[array[:, 1].argsort()]
             array = (array.T).ravel()
-            sorted_db.loc[index] = [row['rank'], row['hearts'], array[0], array[1], array[2], array[3], array[4], array[5], array[6], array[7], array[8], array[9]]
+            sorted_db.loc[index] = [row['palette_rank'], array[0], array[1], array[2], array[3], array[4], array[5], array[6], array[7], array[8], array[9]]
 
-        sorted_db.to_excel("large_sorted.xlsx")
+        sorted_db.to_excel("10000_wid_sorted.xlsx")
 
+# create hls and grayscales values after sorting the width
     def create_overall_database(self):
-        initial_db = pd.read_excel("large_sorted.xlsx")
-        columns = ['hex1', 'hex1', 'hex1', 'hex1', 'hex1', 'r1', 'g1', 'b1', 'r2', 'g2', 'b2','r3', 'g3', 'b3','r4', 'g4', 'b4','r5', 'g5', 'b5', 'h1', 'l1', 's1', 'h2', 'l2', 's2', 'h3', 'l3', 's3', 'h4', 'l4', 's4', 'h5', 'l5', 's5', 'gs1', 'gs2', 'gs3', 'gs4', 'gs5','lightness', 'wid 1', 'wid 2', 'wid 3', 'wid 4', 'wid 5', 'rank', 'hearts']
+        initial_db = pd.read_excel("10000_wid_sorted.xlsx")
+        columns = ['hex1', 'hex1', 'hex1', 'hex1', 'hex1', 'r1', 'g1', 'b1', 'r2', 'g2', 'b2','r3', 'g3', 'b3','r4', 'g4', 'b4','r5', 'g5', 'b5', 'h1', 'l1', 's1', 'h2', 'l2', 's2', 'h3', 'l3', 's3', 'h4', 'l4', 's4', 'h5', 'l5', 's5', 'gs1', 'gs2', 'gs3', 'gs4', 'gs5','lightness', 'wid 1', 'wid 2', 'wid 3', 'wid 4', 'wid 5', 'rank']
         new_db = pd.DataFrame(columns=columns)
         for index, row in initial_db.iterrows():
-            r1, g1, b1 = self.hex2rgb(row['color 1'])
-            r2, g2, b2 = self.hex2rgb(row['color 2'])
-            r3, g3, b3 = self.hex2rgb(row['color 3'])
-            r4, g4, b4 = self.hex2rgb(row['color 4'])
-            r5, g5, b5 = self.hex2rgb(row['color 5'])
-            h1, l1, s1 = self.hex2hls(row['color 1'])
-            h2, l2, s2 = self.hex2hls(row['color 2'])
-            h3, l3, s3 = self.hex2hls(row['color 3'])
-            h4, l4, s4 = self.hex2hls(row['color 4'])
-            h5, l5, s5 = self.hex2hls(row['color 5'])
-            gs1 = self.hex_to_grayscale(row['color 1'])
-            gs2 = self.hex_to_grayscale(row['color 2'])
-            gs3 = self.hex_to_grayscale(row['color 3'])
-            gs4 = self.hex_to_grayscale(row['color 4'])
-            gs5 = self.hex_to_grayscale(row['color 5'])
+            r1, g1, b1 = self.hex2rgb(row['hex1'])
+            r2, g2, b2 = self.hex2rgb(row['hex2'])
+            r3, g3, b3 = self.hex2rgb(row['hex3'])
+            r4, g4, b4 = self.hex2rgb(row['hex4'])
+            r5, g5, b5 = self.hex2rgb(row['hex5'])
+            h1, l1, s1 = self.hex2hls(row['hex1'])
+            h2, l2, s2 = self.hex2hls(row['hex2'])
+            h3, l3, s3 = self.hex2hls(row['hex3'])
+            h4, l4, s4 = self.hex2hls(row['hex4'])
+            h5, l5, s5 = self.hex2hls(row['hex5'])
+            gs1 = self.hex_to_grayscale(row['hex1'])
+            gs2 = self.hex_to_grayscale(row['hex2'])
+            gs3 = self.hex_to_grayscale(row['hex3'])
+            gs4 = self.hex_to_grayscale(row['hex4'])
+            gs5 = self.hex_to_grayscale(row['hex5'])
             lightness_factor = (l1+l2+l3+l4+l5)/5
 
-            new_db.loc[index] = [row['color 1'], row['color 2'], row['color 3'], row['color 4'], row['color 5'], r1, g1, b1, r2, g2, b2, r3, g3, b3, r4, g4, b4, r5, g5, b5, h1, l1, s1, h2, l2, s2, h3, l3, s3, h4, l4, s4, h5, l5, s5, gs1, gs2, gs3, gs4, gs5, lightness_factor, row['wid 1'], row['wid 2'], row['wid 3'], row['wid 4'], row['wid 5'], row['rank'], row['hearts']]
+            new_db.loc[index] = [row['hex1'], row['hex2'], row['hex3'], row['hex4'], row['hex5'], r1, g1, b1, r2, g2, b2, r3, g3, b3, r4, g4, b4, r5, g5, b5, h1, l1, s1, h2, l2, s2, h3, l3, s3, h4, l4, s4, h5, l5, s5, gs1, gs2, gs3, gs4, gs5, lightness_factor, row['wid 1'], row['wid 2'], row['wid 3'], row['wid 4'], row['wid 5'], row['rank']]
 
-        new_db.to_excel('20000ColorValues.xlsx')
+        new_db.to_excel('10000ColorValuesHLS.xlsx')
 
-    def adjust_width(self):
+    def add_random_width(self):
         small = pd.read_excel("3000ColorValues.xlsx")
         large = pd.read_excel("20000ColorValues.xlsx")
 
@@ -392,21 +399,24 @@ class SortingDatabase:
         small.drop(small.columns[[0]], axis=1, inplace=True)
         small.to_excel('3000wid.xlsx', index=False)
 
+# create a category wise boolean
     def add_category_filter(self, df):
         df_copy = df.copy()
         names = ['BlacksandWhites', 'BluesandIndigos', 'GreensandTurquoise', 'GreensandEarth', 'YellowsandLightBrowns',
                  'OrangesandRusts', 'RedsandPinks', 'BurgundyandMaroons', 'BrownsandBeiges', 'PurplesandViolets']
-        df_copy['avg_lightness'] = df['lightness']/5
+        df_copy['avg_lightness'] = df['lightness']
         df_copy['avg_hue'] = (df['h1']+df['h2']+df['h3']+df['h4']+df['h5'])/5
         df_copy['avg_saturation'] = (df['s1']+df['s2']+df['s3']+df['s4']+df['s5'])/5
         df_copy['hue_std'] = df[['h1', 'h2', 'h3', 'h4', 'h5']].std(axis=1)
+        df_copy['lightness_std'] = df[['l1', 'l2', 'l3', 'l4', 'l5']].std(axis=1)
+        df_copy['saturation_std'] = df[['s1', 's2', 's3', 's4', 's5']].std(axis=1)
 
-        df_copy['dark_filter'] = (df_copy['avg_lightness']<50) & (df_copy['l1']<60) & (df_copy['l2']<60) & (df_copy['l3']<60) & (df_copy['l4']<60) & (df_copy['l5']<60)
-        df_copy['muted_filter'] = (df_copy['avg_saturation']<45) & (df_copy['s1']<50) & (df_copy['s2']<50) & (df_copy['s3']<50) & (df_copy['s4']<50) & (df_copy['s5']<50) & (df_copy['avg_lightness']<50)
+        df_copy['dark_filter'] = (df_copy['avg_lightness']<50) & (df_copy['l1']<50) & (df_copy['l2']<50) & (df_copy['l3']<50) & (df_copy['l4']<50) & (df_copy['l5']<50)
+        df_copy['muted_filter'] = (df_copy['avg_saturation']<45) & (df_copy['s1']<50) & (df_copy['s2']<50) & (df_copy['s3']<50) & (df_copy['s4']<50) & (df_copy['s5']<50) & (df_copy['avg_lightness']<45)
         #
-        df_copy['light_filter'] = ~df_copy['dark_filter']
-        df_copy['colorful_filter'] = ~df_copy['muted_filter']
-        df_copy['tone_filters'] = df_copy['hue_std']<12
+        df_copy['light_filter'] = (df_copy['avg_lightness']>40) & (df_copy['l1']>50) & (df_copy['l2']>50) & (df_copy['l3']>50) & (df_copy['l4']>50) & (df_copy['l5']>50)
+        df_copy['colorful_filter'] = (df_copy['avg_saturation']>30) & (df_copy['saturation_std']>5) & (df_copy['avg_lightness']>35) & (df_copy['hue_std']>5)& (df_copy['lightness_std']>8)
+        df_copy['tone_filters'] = df_copy['hue_std']<11
 
         filtered_df = self.find_blackwhites(df)
         df_copy[names[0]] = filtered_df['boolean_1']
@@ -460,8 +470,11 @@ class SortingDatabase:
         column = self.compute_categorical_closeness(df_copy, (115, 89, 125))
         df_copy[names[9]+'_closeness'] = column['closeness']
 
-        print(df_copy)
-
+        print("Colorful::", df_copy.colorful_filter.sum())
+        print("Muted::", df_copy.muted_filter.sum())
+        print("Light::", df_copy.light_filter.sum())
+        print("Dark::", df_copy.dark_filter.sum())
+        print("Tone::", df_copy.tone_filters.sum())
 
         # dark_colors = self.find_dark_palettes(df)
         # df_copy['dark_filter'] = dark_colors['boolean']
@@ -472,14 +485,14 @@ class SortingDatabase:
         # colorful_colors = self.find_colorful_palettes(df)
         # df_copy['colorful_filter'] = colorful_colors['boolean']
 
-
         # df_copy.drop(df_copy.columns[[0]], axis=1, inplace=True)
-        print(df_copy)
-        df_copy = df_copy.iloc[:, 0:]
-        print(df_copy)
+        # print(df_copy)
+        # df_copy = df_copy.iloc[:, 0:]
+        # print(df_copy)
+
+        df_copy.to_excel('10000_with_filters.xlsx')
 
 
-        df_copy.to_excel('filters_aaded_2.xlsx')
 
     def compute_categorical_closeness(self, df, median_color=(0, 0, 0)):
         df['closeness'] = ((df['r5']-median_color[0])**2+(df['g5']-median_color[1])**2+(df['b5']-median_color[2])**2)**0.5
@@ -497,25 +510,26 @@ class SortingDatabase:
         else:
             selected = selected.head(avialable_number)
         if palettes_category == 'light_filter':
-            selected = self.sort_based_on_two_columns(color_category+'_closeness','avg_lightness', selected, True, False)
+            selected = self.sort_based_on_two_columns(color_category+'_closeness', 'avg_lightness', selected, True, False)
         if palettes_category == 'dark_filter':
-            selected = self.sort_based_on_two_columns(color_category+'_closeness','avg_lightness', selected, True, True)
+            selected = self.sort_based_on_two_columns(color_category+'_closeness', 'avg_lightness', selected, True, True)
         if palettes_category == 'colorful_filter':
-            selected = self.sort_based_on_two_columns(color_category+'_closeness', 'hue_std', selected, True,False)
+            selected = self.sort_based_on_two_columns(color_category+'_closeness', 'hue_std', selected, True, False)
         if palettes_category == 'muted_filter':
-            selected = self.sort_based_on_two_columns(color_category+'_closeness','avg_lightness', selected, True,True)
+            selected = self.sort_based_on_two_columns(color_category+'_closeness', 'avg_lightness', selected, True, True)
         # self.create_image_of_result(selected, avialable_number)
         return selected, avialable_number
 
+# used for extract data from single category filter
     def choose_from_one_category(self, df, filter_string):
-        selected = self.sort_based_on_one_column(filter_string, df,False)
+        selected = self.sort_based_on_one_column(filter_string, df, False)
         avilable = selected[filter_string].sum()
         if avilable > 300:
             avilable = 300
         print(avilable)
         self.create_image_of_result(selected.head(avilable), avilable)
 
-
+# it is used to extract the colors from RGB lines
     def select_color_category_from_interpolation(self, df, c1, c2, c3):
         color_distance = 50
         df['c1'] = (((df['r5']-c1[0])**2+(df['g5']-c1[1])**2+(df['b5']-c1[2])**2)**0.5) < color_distance
@@ -534,9 +548,9 @@ class SortingDatabase:
         print(df)
 
 if __name__ == "__main__":
-    filename = "filters_aaded_2.xlsx"
+    filename = "10000_with_filters.xlsx"
     sorting_obj = SortingDatabase()
-    #
+
     # sorting_obj = SortingDatabase(filename="3000ColorValues.xlsx", c=(200, 0, 0),
     #                               filter_string="dark", number=100)
     # sorting_obj.handle_requests()

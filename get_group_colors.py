@@ -19,22 +19,14 @@ def get_group_dictionary():
                 words = line.split(',')
                 odd = words[1:len(words)-1:2]
                 even = words[0:len(words)-1:2]
-                # print(even[1:])
+                # print(even)
+                # print(len(even))
                 group_dictionary[even[0]] = even[2:]
 
         return group_dictionary
 
 def extract_colors_from_sql():
     """
-    UNLOCK TABLES;
-
---
--- Table structure for table `palettes`
---
-
-DROP TABLE IF EXISTS `palettes`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `palettes` (
   `id` int(11) NOT NULL AUTO_INCREMENT,0
   `paletteId` int(11) DEFAULT NULL,1
@@ -55,53 +47,65 @@ CREATE TABLE `palettes` (
   `colorWidths4` varchar(255) DEFAULT NULL,16
   `colorWidths5` varchar(255) DEFAULT NULL,17
   `numColors` int(11) DEFAULT NULL,18
-  PRIMARY KEY (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=3955491 DEFAULT CHARSET=utf8;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Dumping data for table `palettes`
---
-
-LOCK TABLES `palettes` WRITE;
-/*!40000 ALTER TABLE `palettes` DISABLE KEYS */;
     :return:
     """
-
-    with open("D:\Work\ColorRecommendation\ColorCategorization-Data\\firstline.txt") as f:
+    import csv
+    cols = ['id', 'paletteId', 'username', 'numViews', 'numVotes', 'numHearts', 'paletteRank', 'dateCreated', 'hex1', 'hex2', 'hex3', 'hex4', 'hex5', 'wid 1', 'wid 2', 'wid 3', 'wid 4', 'wid 5', 'numColors']
+    df = pd.DataFrame(columns=cols)
+    with open("D:\Work\ColorRecommendation\ColorCategorization-Data\\palettesdb.txt", encoding="utf8") as f:
         content = f.readlines()
-        line = content[0]
-        colors = line.split('(')
-        total_len = len(colors)
-        pandas_col = ["rank", "hearts", "color 1", "color 2", "color 3", "color 4", "color 5", "wid 1", "wid 2", "wid 3", "wid 4", "wid 5", "num_colors"]
-        df = pd.DataFrame(columns=pandas_col)
-        for i, each in enumerate(colors):
-            if i > 0:
-                each = each[:-2].replace(')', '')
-                each = each.replace("'", "")
-                # print(each.split(','))
-                each = each.split(',')
-                df.loc[i] = [int(each[6]), int(each[5]), each[8], each[9], each[10], each[11], each[12], each[13], each[14], each[15], each[16], each[17],int(each[18])]
-                # if i == total_len-1:
-            #     list = each.split(',')
-            #
-            #     # print(list)
-            # else:
-            #     list = each.split(',')
-            #     list = line[:-1]
-            #     # print(list)
-        df.to_excel("8128_3.xlsx")
+        content = [x.replace("""INSERT INTO `palettes` VALUES """, """""") for x in content]
+        content = [x.replace(";", "") for x in content]
+        content = [x.replace("(", "") for x in content]
+        content = [x.replace("),", "\n") for x in content]
+        content = [x.replace(")", "") for x in content]
+        counter = 0
+        # content = content[:1]
+        for data in content:
+            data = data.replace(')', '')
+            # print(data.replace(')', ''))
+            lines = data.split('\n')
+            for each_line in lines:
+                each_line = each_line.replace("'", "")
+                row = each_line.split(',')
+                # print(row)
+                if len(row)==19:
+                    del row[2]
+                    with open('Full.csv', 'a') as csvfile:
+                        writer = csv.writer(csvfile, delimiter=",")
+                        writer.writerow(row)
 
-def join_excels():
-    df1 = pd.read_excel("8128.xlsx")
-    df2 = pd.read_excel("8128_2.xlsx")
-    df3 = pd.read_excel("8128_3.xlsx")
+    print("Completed")
+                #     df.loc[counter] = row
+                #     counter = counter+1
+        # for each in content:
+        #     each= each.replace(')', '')
+            # print(each.split(','))
+    # df.to_excel('FullSqlDb.xlsx')
 
-    df = pd.concat([df1, df2, df3], axis=0, ignore_index=True)
+def sort_based_on_one_column(column_name, df, ascending_flag=True):
+    return df.sort_values(column_name, ascending=ascending_flag)
 
-    df.to_excel("final.xlsx")
+def manage_large_df():
+    df = pd.read_csv('Full.csv', encoding='ISO-8859-1')
+    # df = df[1677:]
+    df = df.drop(['id', 'palette_id', 'date_created', 'num_votes', 'num_views', 'num_hearts'], axis=1)
+    df['palette_rank'] = df['palette_rank'].astype(int)
+    df['num_colors'] = df['num_colors'].astype(int)
+    #
+    df = (df[df.palette_rank > 0])
+    df = (df[df.num_colors > 4])
 
+    required = sort_based_on_one_column('palette_rank', df)
+    required = required.head(10_000)
+    required.to_excel('10000ColorPalettes.xlsx')
+
+
+
+filename = 'HugeSqlDb.xlsx'
 # join_excels()
 # extract_colors_from_sql()
 # group_dictionary=get_group_dictionary()
-# print(group_dictionary)
+# print(len(group_dictionary))
+manage_large_df()
+# extract_colors_from_sql()

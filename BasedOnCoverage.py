@@ -126,8 +126,6 @@ class RecolorBasedOnCoverage:
             print("closeness =", sorted_difference_table[i, -2], "Rank=", sorted_difference_table[i, -1])
             index = np.where(db_table[:, 8] == sorted_difference_table[i, -1])
             candidate_color_list = list(db_table[index[0], 10:15][0])
-            # print(candidate_color_list)
-            # print(list(source_img_colors[0, :]))
             source_lis = list(source_img_colors[0, :])
             recolored_list.append([self.hex2rgb(x) for x in source_lis])
             recolored_list.append([self.hex2rgb(x) for x in candidate_color_list])
@@ -258,20 +256,22 @@ class RecolorBasedOnCoverage:
         replaced_img.save("Interpolated/"+name)
 
 
+
 if __name__ == "__main__":
     import os
-    img_name = "Rithron.png"
-    Obj = RecolorBasedOnCoverage(img_name=img_name, db_name="sorted_1000.xlsx")
+    # img_name = "Rithron.png"
+    # Obj = RecolorBasedOnCoverage(img_name=img_name, db_name="sorted_1000.xlsx")
     #
-    dir_path, list_of_files = python_utils.get_files_of_folder("D:\\Work\\ColorRecommendation\\new_test")
+    dir_path, list_of_files = python_utils.get_files_of_folder("D:\\Work\\ColorRecommendation\\images")
     already_completed = []
     for each in list_of_files:
         if each[:7] not in already_completed:
             img = Image.open(os.path.join(dir_path, each)).convert('RGB')
-            if len(img.getcolors()) == 5:
+            if len(img.getcolors()) != 5:
                 img_name = os.path.join(dir_path, each)
                 i = Image.open(img_name)
-                i.save('FiveColorImages/'+each)
+                i.save('Uniquie/'+each)
                 # Obj = RecolorBasedOnCoverage(img_name=img_name, db_name="sorted_1000.xlsx")
             already_completed.append(each[:7])
     # Obj = RecolorBasedOnCoverage(img_name=img_name, db_name="sorted_1000.xlsx")
+

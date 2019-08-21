@@ -60,6 +60,11 @@ class Visualization:
         plt.show()
         # plt.savefig('Output/' + 'graph.png', orientation='landscape', dpi=200)
 
+    def csv_to_dat(self):
+        import pandas as pd
+        df = pd.read_csv('D:\\GeoLite2-City-Blocks-IPv4.csv')
+        df.to_csv("output.dat")
+
 if __name__ == "__main__":
     Obj = Visualization()
     import get_group_colors
@@ -71,11 +76,13 @@ if __name__ == "__main__":
     all_colors = []
     all_labels = []
     for k, v in color_range.items():
-        label = [count]*len(v)
-        count += 1
-        all_colors = all_colors + v
-        all_labels = all_labels + label
+        if k == names[9]:
+            label = [count]*len(v)
+            count += 1
+            all_colors = all_colors + v
+            all_labels = all_labels + label
 
     # black = color_range[names[2]]
     black_hls = [Obj.hex2hls(x[1:]) for x in all_colors]
-    Obj.create_graph(black_hls, all_labels, all_colors)
+    # Obj.csv_to_dat()
+    # Obj.create_graph(black_hls, all_labels, all_colors)

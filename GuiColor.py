@@ -20,12 +20,13 @@ class WidgetGallery(QDialog):
 
         parameter_groupbox = self.crete_parameter_groupbox()
         w = screen.size().width()
+        self.screen_width = w
 
         parameter_groupbox.setFixedWidth(w // 5)
 
         image_groupbox = self.create_input_img_groupbox()
         list_view = self.create_image_listview()
-        ordinary_groupbox = self.create_second_img_groupbox()
+        # ordinary_groupbox = self.create_second_img_groupbox()
 
         main_layout = QGridLayout()
         main_layout.addWidget(parameter_groupbox, 0, 0)
@@ -52,10 +53,14 @@ class WidgetGallery(QDialog):
         self.list_of_files = []
         self.selected_color_category = "light_filter"
         self.selected_color_class = 2
+        self.length_of_dataframe = 0
         self.y_value = 170
         self.selected_dataframe = None
         self.named_colors = ['BlacksandWhites', 'BluesandIndigos', 'GreensandTurquoise', 'GreensandEarth', 'YellowsandLightBrowns',
                  'OrangesandRusts', 'RedsandPinks', 'BurgundyandMaroons', 'BrownsandBeiges', 'PurplesandViolets']
+        self.df_already_selected = False
+        self.current_img_path = ''
+        self.current_img = None
 
     def changeStyle(self, styleName):
         QApplication.setStyle(QStyleFactory.create(styleName))
@@ -93,6 +98,12 @@ class WidgetGallery(QDialog):
             self.current_img = np.asarray(Image.open(self.current_img_path).convert('RGB'))
             self.render_image(self.current_img, self.input_scene)
 
+            if self.df_already_selected == False:
+                self.call_sorting_algorithm()
+            else:
+                self.recolor_design_next()
+
+
     def crete_parameter_groupbox(self):
         parameter_groupbox = QGroupBox("Parameters")
 
@@ -123,14 +134,14 @@ class WidgetGallery(QDialog):
         self.category_view = QGraphicsView(self.category_scene)
         self.category_view.mousePressEvent = self.get_coordinate
 
-        self.recolor_btn = QPushButton('Recolor')
+        self.total_returned_pallete_info = QLabel('Total Colors in selected Category: ')
         self.next_btn = QPushButton('Next')
 
         vbox_layout.addWidget(self.file_open_btn)
         vbox_layout.addWidget(self.file_open_btn, 0 , 0, 1, 0)
         vbox_layout.addWidget(self.category_view, 1, 0)
         vbox_layout.addWidget(filter_group_box, 2, 0)
-        vbox_layout.addWidget(self.recolor_btn, 3, 0)
+        vbox_layout.addWidget(self.total_returned_pallete_info, 3, 0)
         vbox_layout.addWidget(self.next_btn, 4, 0)
         vbox_layout.addWidget(self.selected_color_class_lbl, 5, 0)
         vbox_layout.addWidget(self.selected_color_category_lbl,6, 0)
@@ -206,6 +217,9 @@ class WidgetGallery(QDialog):
         #
         self.ImageShowerList.blockSignals(True)
         folder_name = QFileDialog.getExistingDirectory(self, "Select Directory")
+        print('Folder name ', folder_name)
+        if len(folder_name)<1:
+            folder_name = os.getcwd()
         files = self.list_files_inside_folder(folder_name)
         if files:
             self.ImageShowerList.blockSignals(True)
@@ -229,13 +243,12 @@ class WidgetGallery(QDialog):
 
     def list_files_inside_folder(self, path_to_folder) -> list:
         files = []
-        for ext in ('*.png', '*.jpg', '*JPG', '*JPEG'):
-            files.extend(glob.glob(os.path.join(path_to_folder, ext)))
 
-        list_of_files = []
-        for each in files:
-            each = each.replace("/", "\\")
-            list_of_files.append(each)
+        for file in os.listdir(path_to_folder):
+            if file.endswith(".png"):
+                path = os.path.join(path_to_folder, file).replace("/", "\\")
+                files.append(path)
+
         return files
 
     def convert_from_pil_to_numpy(self, img):
@@ -254,8 +267,7 @@ class WidgetGallery(QDialog):
         qImg = QImage(img.data, width, height, bytesPerLine, QImage.Format_RGB888)
         pixmap = QPixmap(qImg)
         if flag:
-            print(place_holder.height())
-            pixmap = pixmap.scaled(place_holder.width(), place_holder.height(), Qt.KeepAspectRatio,Qt.FastTransformation)
+            pixmap = pixmap.scaled(int(self.screen_width*0.65), place_holder.height(), Qt.KeepAspectRatio, Qt.FastTransformation)
         place_holder.addPixmap(pixmap)
 
     def value_change(self):
@@ -314,14 +326,29 @@ class WidgetGallery(QDialog):
 
     def set_status_to_recolor_thread(self):
         self.recolor_process.image_to_recolor = self.current_img_path
+        self.recolor_process.category_name = self.named_colors[self.define_category_from_position(self.y_value)]
         self.recolor_process.color_dataframe = self.selected_dataframe.head(3)
+        self.recolor_process.large_dataframe = self.selected_dataframe
 
     def recolor_design_next(self):
-        self.recolor_process.image_to_recolor = self.current_img_path
-        print(self.length_of_dataframe, len(self.selected_dataframe.index))
-        random_num = random.sample(range(self.length_of_dataframe-1), 3)
-        self.recolor_process.color_dataframe = self.selected_dataframe.iloc[[random_num[0], random_num[1], random_num[2]]]
-        self.recolor_process.start()
+        if len(self.current_img_path) > 0:
+            self.recolor_process.image_to_recolor = self.current_img_path
+            try:
+                if len(self.selected_dataframe.index) > 3:
+                    self.total_returned_pallete_info.setText('Total Colors in selected Category: ' + str(len(self.selected_dataframe.index)))
+                    random_num = random.sample(range(len(self.selected_dataframe.index)-1), 3)
+                    print('Total palettes for this filter == ', len(self.selected_dataframe.index))
+
+                    self.recolor_process.color_dataframe = self.selected_dataframe.iloc[[random_num[0], random_num[1], random_num[2]]]
+                    self.recolor_process.category_name = self.named_colors[self.define_category_from_position(self.y_value)]
+                    self.recolor_process.large_dataframe =self.selected_dataframe
+                    self.recolor_process.start()
+                else:
+                    self.total_returned_pallete_info.setText('Total Colors in selected Category: ' + str(0))
+                    print("not enough colors in the category")
+            except AttributeError:
+                self.render_image(self.current_img, self.input_scene)
+                self.call_sorting_algorithm()
 
     def call_sorting_algorithm(self):
         self.selected_color_category = self.get_filter_string()
@@ -339,13 +366,26 @@ class WidgetGallery(QDialog):
         print('color selection finished... Now applying it to a design')
         self.selected_dataframe = returned_list[0]
         self.length_of_dataframe = returned_list[1]
-        self.set_status_to_recolor_thread()
-        self.recolor_process.start()
+        self.df_already_selected = True
+        if returned_list[1] < 3:
+            self.total_returned_pallete_info.setText('Total Colors in selected Category: ' + str(0))
+            print("Cannot Get Color for this Categoty")
+        else:
+            self.total_returned_pallete_info.setText('Total Colors in selected Category: ' + str(returned_list[1]))
+            if len(self.current_img_path)>0:
+                self.set_status_to_recolor_thread()
+                self.recolor_process.start()
+            else:
+                QMessageBox.about(self, 'Error',"No any Image to Recolor")
 
     @QtCore.pyqtSlot(list)
     def recolor_thread_complete(self, returned_list):
         print('Recoloring Finished')
-        self.render_image(returned_list[0], self.input_scene, True)
+        if returned_list[1]:
+            self.render_image(returned_list[0], self.input_scene, True)
+        else:
+            QMessageBox.about(self, 'Error', 'Too many colors in given image')
+
         # recolored_img = returned_list[0]
 
 class WorkerThread(QThread):
@@ -361,8 +401,9 @@ class WorkerThread(QThread):
     def run(self):
         return_list = []
         from SortingDatabase import SortingDatabase
-        sorting_obj = SortingDatabase(filename="filters_aaded_2.xlsx", palette_filter=self.color_category, color_category=self.color_class)
+        sorting_obj = SortingDatabase(filename="10000_with_filters.xlsx", palette_filter=self.color_category, color_category=self.color_class)
         refined, count = sorting_obj.choose_from_two_category(self.color_class, self.color_category)
+        print("Returned length of selected palettes == ", count)
         return_list.append(refined)
         return_list.append(count)
         self.worker_thread_signal.emit(return_list)
@@ -374,18 +415,28 @@ class RecolorThread(QThread):
     def __init__(self, parent=None):
         super(RecolorThread, self).__init__(parent)
         self.image_to_recolor = None
-        self.color_dataframe =None
+        self.color_dataframe = None
+        self.category_name = None
+        self.large_dataframe = None
 
     @QtCore.pyqtSlot()
     def run(self):
         return_list = []
         from ApplyPalettes import ApplyPalettes
         print('recolor thread started')
-        print(self.image_to_recolor)
+        # print(self.image_to_recolor)
+        # try:
         recolorObj = ApplyPalettes(self.image_to_recolor)
-        recolored_img = recolorObj.handle_requests(self.color_dataframe)
+        recolored_img = recolorObj.handle_requests(self.color_dataframe, self.category_name, self.large_dataframe)
         return_list.append(recolored_img)
+        return_list.append(True)
         self.recolor_thread_signal.emit(return_list)
+        # except TypeError:
+        #     print('Too many Colors in Image')
+        #     return_list.append(self.image_to_recolor)
+        #     return_list.append(False)
+        #     self.recolor_thread_signal.emit(return_list)
+
 
 if __name__ == '__main__':
     import sys

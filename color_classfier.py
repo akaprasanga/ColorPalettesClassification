@@ -5,11 +5,14 @@ from sklearn.utils import shuffle
 from sklearn.model_selection import train_test_split
 from sklearn.svm import SVC
 import os
+from sklearn.cluster import KMeans
 from PIL import Image
 import pickle
 import pandas as pd
+cwd = os.getcwd()
+vips_path = cwd+'\\libvips'
+os.environ['PATH'] = vips_path
 import pyvips
-import cv2
 import colorsys
 
 dtype_to_format = {
@@ -36,19 +39,34 @@ def np_to_vips(img):
 def rgb2hex(color):
     return '{:02x}{:02x}{:02x}'.format(color[0], color[1], color[2])
 
-
 def hex2rgb(color):
     return tuple(int(color[i:i + 2], 16) for i in (0, 2, 4))
-
 
 def hex_to_grayscale(hex_color):
     rgb_tuple = hex2rgb(hex_color)
     return 0.2126 * rgb_tuple[0] + 0.7152 * rgb_tuple[1] + 0.0722 * rgb_tuple[2]
 
-def hex2hsv(color):
-    color = hex2rgb(color)
-    h, s, v = colorsys.rgb_to_hsv(color[0]/255, color[1]/255, color[2]/255)
-    return h, s, v
+def hex2hls(color):
+    rgb_tuple = hex2rgb(color)
+    h, l, s = colorsys.rgb_to_hls(rgb_tuple[0]/255, rgb_tuple[1]/255, rgb_tuple[2]/255)
+    return tuple((h*360, l*100, s*100))
+
+def hls2rgb(color):
+    h, l, s = color[0]/360, color[1]/100, color[2]/100
+    r, g, b = colorsys.hls_to_rgb(h, l, s)
+    return tuple((int(r*255), int(g*255), int(b*255)))
+
+def rgb2hls(color):
+    r, g, b = color[0]/255, color[1]/255, color[2]/255
+    h, l, s = colorsys.rgb_to_hls(r, g, b)
+    return tuple((int(h*360), int(l*100), int(s*100)))
+
+def rgb2hex(color):
+    return '{:02x}{:02x}{:02x}'.format(color[0], color[1], color[2])
+
+def hex_to_grayscale(hex_color):
+    rgb_tuple = hex2rgb(hex_color)
+    return 0.2126 * rgb_tuple[0] + 0.7152 * rgb_tuple[1] + 0.0722 * rgb_tuple[2]
 
 def get_feature_vector(hex_color_list):
     rgb_list = []
@@ -59,15 +77,50 @@ def get_feature_vector(hex_color_list):
         rgb_list.append(r / 255)
         rgb_list.append(g / 255)
         rgb_list.append(b / 255)
-        # rgb_list.append(h)
-        # rgb_list.append(s)
-        # rgb_list.append(v)
         gs = hex_to_grayscale(each) / 255
         gray_scale_list.append(gs)
     gs_std = np.std(np.array(gray_scale_list))
     gray_scale_list.append(gs_std)
     feature_row = np.array(rgb_list + gray_scale_list)
     return feature_row.reshape(1, -1)
+
+def keras_classifier():
+    import tensorflow.keras
+    import tensorflow.keras
+    from tensorflow.keras.models import Sequential
+    from tensorflow.keras.layers import Dense, Dropout, Activation
+    from tensorflow.keras.optimizers import SGD
+    from tensorflow.python.framework import ops
+    ops.reset_default_graph()    # Generate dummy data
+    import numpy as np
+
+    model = Sequential()
+    # Dense(64) is a fully-connected layer with 64 hidden units.
+    # in the first layer, you must specify the expected input data shape:
+    # here, 20-dimensional vectors.
+    model.add(Dense(64, activation='relu', input_dim=3))
+    model.add(Dropout(0.5))
+    model.add(Dense(64, activation='relu'))
+    model.add(Dropout(0.5))
+    model.add(Dense(10, activation='softmax'))
+
+    sgd = SGD(lr=0.01, decay=1e-6, momentum=0.9, nesterov=True)
+    model.compile(loss='sparse_categorical_crossentropy',
+                  optimizer=sgd,
+                  metrics=['accuracy'])
+
+    total_x = np.load('trainablesets/l2trainingarray.npy')
+    training_array = shuffle(total_x)
+    X = training_array[:, :-1]
+    y = training_array[:, -1]
+    x_train, x_test, y_train, y_test = train_test_split(X, y, test_size=0.3, shuffle=True)
+
+
+    model.fit(x_train, y_train,
+              epochs=200,
+              batch_size=10)
+    score = model.evaluate(x_test, y_test, batch_size=10)
+    print(score)
 
 def create_dataset():
     # summer_data = np.loadtxt("color classes/summer.txt", dtype='str')
@@ -99,30 +152,37 @@ def create_dataset():
 
 # create_dataset()
 def train_classifier():
-    blue = np.load('trainablesets/blue-4.npy')
+    # blue = np.load('trainablesets/blue-4.npy')
     # summer_feature = summer_feature[:summer_feature.shape[0]-1, :]
-    green = np.load('trainablesets/green-4.npy')
+    # green = np.load('trainablesets/green-4.npy')
     # winter_feature = winter_feature[:350, :]
-    red = np.load('trainablesets/red-4.npy')
-    total_x = np.vstack((blue, green, red))
+    # red = np.load('trainablesets/red-4.npy')
+    # total_x = np.vstack((blue, green, red))
     #
+    total_x = np.load('trainablesets/l2trainingarray.npy')
     training_array = shuffle(total_x)
     X = training_array[:, :-1]
     y = training_array[:, -1]
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, shuffle=True)
 
-    # svc = SVC()
+    # svc = SVC(kernel='poly', verbose=True)
     mlp = MLPClassifier(hidden_layer_sizes=(100,), max_iter=2000, verbose=True, learning_rate_init=0.01)
     mlp.fit(X_train, y_train)
     # svc.fit(X_train, y_train)
     mlp_predicted = mlp.predict(X_test)
     # svc_predicted = svc.predict(X_test)
 
-    mlp_acc = accuracy_score(y_test, mlp_predicted)
-    # svc_acc = accuracy_score(y_test, svc_predicted)
-    accuracy_string = str(int(mlp_acc*100))+"B0G1R2"
+    # mlp_acc = accuracy_score(y_test, mlp_predicted)
+    svc_acc = accuracy_score(y_test, mlp_predicted)
+    accuracy_string = str(int(svc_acc*100))+"L2"
     pickle.dump(mlp, open(accuracy_string, 'wb'))
-    print(mlp_acc)
+    print(svc_acc)
+
+    kmeans = KMeans(n_clusters=10)
+    kmeans.fit(X_train)
+    kmeans_predicted = kmeans.predict(X_test)
+    kmeans_acc = accuracy_score(y_test, kmeans_predicted)
+    print("Kmeans acc =", kmeans_acc)
     # tn, fp, fn, tp = confusion_matrix(y_test, mlp_predicted).ravel()
     # print('tn = ', tn, 'Fp=', fp, 'Fn=', fn, 'tp=', tp)
 
@@ -167,7 +227,6 @@ def save_four_color_palettes():
             with open('avilable/totalcolors-filtered.txt', 'a') as the_file:
                 the_file.write(write_str)
 
-
 def predict_paletes():
     color_db = np.array(pd.read_excel("sorted_1000.xlsx"))
     color_db = color_db[:-1, :]
@@ -199,21 +258,43 @@ def predict_paletes():
     # predicted_bright = predicted_bright[1:]
     predicted_bright = np.asarray(predicted_bright)
     np.save('color_gan_data', predicted_bright)
-    # joined_blue = pyvips.Image.arrayjoin(predicted_blue, across=1, shim=8)
-    # joined_blue.write_to_file('blue.png')
-    #
-    # joined_green = pyvips.Image.arrayjoin(predicted_green, across=1, shim=8)
-    # joined_green.write_to_file('green.png')
-    #
-    # joined_red = pyvips.Image.arrayjoin(predicted_red, across=1, shim=8)
-    # joined_red.write_to_file('red.png')
-        # i = Image.fromarray(blank_img.astype('uint8'))
-        # i.save('1.png')
-    # for i, img in enumerate(predicted_brights):
-    #     img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
-    #     cv2.imwrite("bright_palletes/"+str(i)+'.png', img)
 
-save_four_color_palettes()
+def pca_analysis():
+    import numpy as np
+    quantized_img = Image.open('D:\Work\graph\Colorlevels.png').convert('RGB').getcolors()
+    c = [x[1] for x in quantized_img]
+    hls_colors = [rgb2hls(x) for x in c]
+    colors_from_img = np.array(hls_colors)
+
+    colours = np.array([
+        [27, 17, 20], [121, 42, 65], [79, 15, 19], [79, 23, 17],
+        [70, 15, 11], [84, 29, 27], [123, 44, 32], [138, 44, 34],
+        [111, 28, 21], [86, 21, 16], [203, 65, 46], [193, 91, 63],
+        [107, 24, 17], [109, 44, 30], [82, 24, 17], [127, 63, 33],
+        [176, 97, 36], [155, 76, 32], [144, 91, 36], [185, 125, 50],
+        [176, 140, 47], [174, 139, 87]
+    ])
+
+    ncolors = (colors_from_img - colors_from_img.mean(axis=0)) / colors_from_img.std(axis=0)  # always a smart idea to standardize pre-PCA
+    S = np.corrcoef(ncolors.T)
+    w, eignvectors = np.linalg.eig(S)
+
+    reduced_data = np.dot(ncolors, eignvectors[:, np.argmax(w)])
+    collection = np.argsort(reduced_data)
+    collected_img = []
+    for i in range(0, collection.shape[0]):
+        empty = np.zeros((200, 600, 3), dtype='uint8')
+        index = np.where(collection == i)[0][0]
+        empty[:, :, :] = np.array(hls2rgb(tuple(colors_from_img[index])))
+        collected_img.append(np_to_vips(empty))
+
+    joined_image = pyvips.Image.arrayjoin(collected_img, across=1, shim=5)
+    joined_image.write_to_file("sorted_colors_hls.jpg")
+
+
+# pca_analysis()
+# save_four_color_palettes()
 # create_dataset()
-# train_classifier()
+train_classifier()
 # predict_paletes()
+# keras_classifier()

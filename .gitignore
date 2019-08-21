@@ -20,6 +20,7 @@ __pycache__/
 
 #Model
 *.File
+*.csv
 
 # Distribution / packaging
 .Python
@@ -33,6 +34,7 @@ lib/
 lib64/
 parts/
 sdist/
+libvips/
 var/
 wheels/
 *.egg-info/
