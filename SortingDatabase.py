@@ -13,7 +13,7 @@ import pyvips
 
 class SortingDatabase:
 
-    def __init__(self, filename="10000_with_filters.xlsx", palette_filter='light_filter', color_category=2):
+    def __init__(self, filename="10000ColorValuesHLS.xlsx", palette_filter='light_filter', color_category=2):
         self.color_db = pd.read_excel(filename)
         self.hls_range = {'red':[330, 360, 20, 80],
                           'yellow':[30, 90, 20, 80],
@@ -39,13 +39,13 @@ class SortingDatabase:
         self.palette_filter = palette_filter
         self.color_category = color_category
         # self.result_count = number
-        self.color_db.drop(self.color_db.tail(1).index, inplace=True)
-        self.color_db.drop_duplicates(keep=False, inplace=True)
-        # df = self.color_db.copy()
-        # self.add_category_filter(df)
+        # self.color_db.drop(self.color_db.tail(1).index, inplace=True)
+        # self.color_db.drop_duplicates(keep=False, inplace=True)
 
+        # df = self.color_db.copy()
+        # self.add_category_filter(self.color_db)
+        # self.find_blackwhites(self.color_db)
         # self.merge_palettes(self.color_db, 45, self.names[2], 'wid 5')
-        # self.choose_from_one_category(df, self.names[3])
         # self.select_color_category_from_interpolation(df, c1=(42, 47, 59), c2=(103, 108, 120), c3=(173, 179, 190))
         # refned, count = self.choose_from_two_category(self.color_category, self.palette_filter)
         # print("Total Colors in the selected Category::", count)
@@ -176,9 +176,14 @@ class SortingDatabase:
         return tuple((h*360, l*100, s*100))
 
     def hls2rgb(self, color):
-        h, l, s = color[0]/360, color[1]/100, color[2]/100
+        h, l, s = color[0] / 360, color[1] / 100, color[2] / 100
         r, g, b = colorsys.hls_to_rgb(h, l, s)
-        return tuple((int(r*255), int(g*255), int(b*255)))
+        return tuple((int(r * 255), int(g * 255), int(b * 255)))
+
+    def rgb2hls(self, color):
+        r, g, b = color[0] / 255, color[1] / 255, color[2] / 255
+        h, l, s = colorsys.rgb_to_hls(r, g, b)
+        return tuple((int(h * 360), int(l * 100), int(s * 100)))
 
     def handle_requests(self):
         # sorted_based_on_color = self.search_nearest_color_rgb(color=self.color_to_search, df=self.color_db)
@@ -274,8 +279,10 @@ class SortingDatabase:
         return lightcolor_candidate
 
     def find_blackwhites(self, df):
-        df['boolean_1'] = (df['h5'] < 250) & (df['h5'] > 200) & (df['s5'] < 40)
-        # selected = self.sort_based_on_one_column('boolean', df, False)
+        df['blacksandwhites_std'] = df[['r5', 'g5', 'b5']].std(axis=1)
+        df['boolean_1'] = (df['blacksandwhites_std'] < 5)
+        # selected = self.sort_based_on_one_column('boolean_1', df, False)
+        # self.create_image_of_result(selected, 200)
         # avilable = selected.boolean.sum()
         # return selected.head(avilable)
         return df
@@ -475,6 +482,7 @@ class SortingDatabase:
         print("Light::", df_copy.light_filter.sum())
         print("Dark::", df_copy.dark_filter.sum())
         print("Tone::", df_copy.tone_filters.sum())
+        print("Black and Whites:", df_copy.BlacksandWhites.sum())
 
         # dark_colors = self.find_dark_palettes(df)
         # df_copy['dark_filter'] = dark_colors['boolean']
@@ -491,8 +499,6 @@ class SortingDatabase:
         # print(df_copy)
 
         df_copy.to_excel('10000_with_filters.xlsx')
-
-
 
     def compute_categorical_closeness(self, df, median_color=(0, 0, 0)):
         df['closeness'] = ((df['r5']-median_color[0])**2+(df['g5']-median_color[1])**2+(df['b5']-median_color[2])**2)**0.5
@@ -547,10 +553,76 @@ class SortingDatabase:
 
         print(df)
 
-if __name__ == "__main__":
-    filename = "10000_with_filters.xlsx"
-    sorting_obj = SortingDatabase()
 
+class InterpolationFilters:
+
+    def __init__(self):
+        self.sorting_obj = SortingDatabase()
+        self.variation_for_category('dark')
+        # print(self.create_linearyly_spaced_array(start=np.array([200, 1, 1]),end= np.array([200, 1, 1]),num= 9, axis=0))
+
+    def get_axis_from_category(self, name) -> (int, int):
+
+        if name == 'light':
+            return 1, 100
+
+        if name == 'dark':
+            return 1, 0
+
+        if name == 'muted':
+            return 2, 0
+
+        if name == 'colorful':
+            return 2, 100
+
+    def variation_for_category(self, filter_string):
+        filter_string = 'muted'
+        num = 10
+        source_rgb = [(105, 210, 231), (167, 219, 216), (224, 228, 204), (243, 134, 48), (250, 105, 0)]
+        source_hls = [self.sorting_obj.rgb2hls(x) for x in source_rgb]
+
+        if filter_string == 'light':
+            modified_list = [self.create_linearyly_spaced_array(np.array(x), np.array([x[0], 90, x[2]]), num, axis=1) for x in source_hls]
+
+        if filter_string == 'dark':
+            modified_list = [self.create_linearyly_spaced_array(np.array(x), np.array([x[0], 15, 20]), num, axis=1) for x in source_hls]
+
+        if filter_string == 'muted':
+            modified_list = [self.create_linearyly_spaced_array(np.array(x), np.array([x[0], x[1]-30, 0]), num, axis=1) for x in source_hls]
+
+        if filter_string == 'colorful':
+            modified_list = [self.create_linearyly_spaced_array(np.array(x), np.array([x[0], x[1], 100]), num, axis=1) for x in source_hls]
+
+        interpolated_hls_list_one = np.dstack((modified_list[0][0], modified_list[0][1], modified_list[0][2]))
+        interpolated_hls_list_two = np.dstack((modified_list[1][0], modified_list[1][1], modified_list[1][2]))
+        interpolated_hls_list_three = np.dstack((modified_list[2][0], modified_list[2][1], modified_list[2][2]))
+        interpolated_hls_list_four = np.dstack((modified_list[3][0], modified_list[3][1], modified_list[3][2]))
+        interpolated_hls_list_five = np.dstack((modified_list[4][0], modified_list[4][1], modified_list[4][2]))
+
+        new_img_list = []
+        for i in range(0, num):
+            empty = np.zeros((200, 1000, 3), dtype='uint8')
+            # print(tuple(interpolated_hls_list_one[0][i]))
+            empty[:, :200, :] = np.array(self.sorting_obj.hls2rgb(tuple(interpolated_hls_list_one[0][i])))
+            empty[:, 200:400, :] = np.array(self.sorting_obj.hls2rgb(tuple(interpolated_hls_list_two[0][i])))
+            empty[:, 400:600, :] = np.array(self.sorting_obj.hls2rgb(tuple(interpolated_hls_list_three[0][i])))
+            empty[:, 600:800, :] = np.array(self.sorting_obj.hls2rgb(tuple(interpolated_hls_list_four[0][i])))
+            empty[:, 800:, :] = np.array(self.sorting_obj.hls2rgb(tuple(interpolated_hls_list_five[0][i])))
+            new_img_list.append(self.sorting_obj.np_to_vips(empty))
+        #
+        joined_img = pyvips.Image.arrayjoin(new_img_list, across=1, shim=8)
+        joined_img.write_to_file('varation.jpg')
+        i = Image.open('varation.jpg').convert('RGB')
+        i.show()
+
+    def create_linearyly_spaced_array(self, start, end, num, axis):
+        spaced_array = np.linspace(start, end, num, axis=axis)
+        return spaced_array
+
+if __name__ == "__main__":
+    filename = "10000ColorValuesHLS.xlsx"
+    # sorting_obj = SortingDatabase()
+    interObj = InterpolationFilters()
     # sorting_obj = SortingDatabase(filename="3000ColorValues.xlsx", c=(200, 0, 0),
     #                               filter_string="dark", number=100)
     # sorting_obj.handle_requests()

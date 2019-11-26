@@ -137,7 +137,7 @@ class ApplyPalettes:
                 list_of_sorting_columns = ['wid 5', 's5', 'h5']
                 for i in range(0, 3):
                     destination_color_list = self.merge_palettes(large_dataframe, len(self.colors_only), category_name, list_of_sorting_columns[i])
-                    print(i,"==",destination_color_list)
+                    # print(i,"==",destination_color_list)
                     recolored_img.append(self.replace_colors(self.sorted_colors_only, destination_color_list))
                 joined_image = pyvips.Image.arrayjoin(recolored_img, across=2, shim=10)
                 joined_image = self.vips_to_np(joined_image)
